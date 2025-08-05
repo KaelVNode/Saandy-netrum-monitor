@@ -1,73 +1,79 @@
 import { spawn } from 'child_process';
 
-export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDailyReport }) {
-  let claimInProgress = false;
+export function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim }) {
+  let logProcess = null;
+  let lastSent = 0;
+  const rateLimitMs = 30000;
 
   const emojis = {
-    start: '🔥',
-    success: '✅',
-    fail: '❌',
-    link: '🔗',
-    claimBox: '📦',
+    chart: '📊',
+    clock: '⏰',
+    progress: '📅',
+    mined: '💰',
+    speed: '⚡',
+    status: '✅',
+    claim: '📦',
   };
 
-  async function runAutoClaim() {
-    if (claimInProgress) {
-      await telegramSend(`${emojis.fail} Claim already in progress, skipping.`);
-      return;
+  function start() {
+    if (logProcess) {
+      logProcess.kill();
+      logProcess = null;
     }
 
-    claimInProgress = true;
-    await telegramSend(`${emojis.claimBox} Starting automatic NPT claim...`);
+    logProcess = spawn('netrum-mining-log', [], { maxBuffer: 1024 * 10 });
+    console.log('Started mining monitor...');
 
-    const claimProcess = spawn('node', ['/root/netrum-lite-node/cli/claim-cli.js'], {
-      detached: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    logProcess.stdout.on('data', (data) => {
+      const lines = data
+        .toString()
+        .split('\n')
+        .filter(line => line.includes('Mined') || line.includes('Speed'));
 
-    let output = '';
-    const timeoutMs = 2 * 60 * 1000; // 2 minutes timeout
-    const timeout = setTimeout(() => {
-      claimProcess.kill('SIGKILL');
-      telegramSend(`${emojis.fail} Claim timed out and was killed (>${timeoutMs / 1000}s)`);
-      claimInProgress = false;
-    }, timeoutMs);
+      for (const line of lines) {
+        const parts = line.split('|').map(p => p.trim());
+        if (parts.length < 5) continue;
 
-    claimProcess.stdout.on('data', (data) => {
-      const text = data.toString();
-      output += text;
-      if (text.includes('(y/n)')) {
-        claimProcess.stdin.write('y\n');
+        const mined = parseFloat(parts[2]?.replace('Mined:', '') || 0);
+        if (!isNaN(mined)) stats.mined = mined;
+
+        const message = `
+<b>${emojis.chart} Mining Update</b>
+${emojis.clock} <b>Waktu:</b> ${parts[0]}
+${emojis.progress} <b>Progres:</b> ${parts[1]}
+${emojis.mined} <b>Mined:</b> ${mined}
+${emojis.speed} <b>Speed:</b> ${parts[3]}
+${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
+
+        const now = Date.now();
+        if (now - lastSent >= rateLimitMs) {
+          telegramSend(message);
+          lastSent = now;
+        }
+
+        if (
+          parts[4]?.includes('Claim Pending') ||
+          parts[1]?.includes('100.00%')
+        ) {
+          runAutoClaim();
+        }
       }
     });
 
-    claimProcess.stderr.on('data', (data) => {
-      output += data.toString();
+    logProcess.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
     });
 
-    claimProcess.on('close', (code) => {
-      clearTimeout(timeout);
-      const match = output.match(/https:\/\/basescan\.org\/tx\/\S+/);
-      const txLink = match ? match[0] : null;
+    logProcess.on('close', () => {
+      console.log(`Restarting mining log after ${timeout / 1000}s...`);
+      logProcess = null;
+      setTimeout(start, timeout);
+    });
 
-      if (code === 0) {
-        stats.claims += 1;
-        telegramSend(`
-<b>${emojis.success} Claim Result</b>
-Status: Success
-${emojis.link} Transaction: <a href="${txLink || '#'}">${txLink || 'Link not found'}</a>`.trim());
-        sendDailyReport();
-      } else {
-        telegramSend(`
-<b>${emojis.fail} Claim Result</b>
-Status: Failed
-Exit Code: ${code}
-<pre>${output.slice(-500)}</pre>`.trim());
-      }
-
-      claimInProgress = false;
+    logProcess.on('error', (err) => {
+      console.error('Failed to run mining log:', err);
     });
   }
 
-  return { runAutoClaim };
+  start();
 }
