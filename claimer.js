@@ -4,6 +4,7 @@ export function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim
   let logProcess = null;
   let lastSent = 0;
   const rateLimitMs = 30000;
+  let isStopped = false;
 
   const emojis = {
     chart: '📊',
@@ -16,6 +17,8 @@ export function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim
   };
 
   function start() {
+    if (isStopped) return;
+
     if (logProcess) {
       logProcess.kill();
       logProcess = null;
@@ -25,10 +28,8 @@ export function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim
     console.log('Started mining monitor...');
 
     logProcess.stdout.on('data', (data) => {
-      const lines = data
-        .toString()
-        .split('\n')
-        .filter(line => line.includes('Mined') || line.includes('Speed'));
+      const lines = data.toString().split('\n').filter(line =>
+        line.includes('Mined') || line.includes('Speed'));
 
       for (const line of lines) {
         const parts = line.split('|').map(p => p.trim());
@@ -65,9 +66,10 @@ ${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
     });
 
     logProcess.on('close', () => {
-      console.log(`Restarting mining log after ${timeout / 1000}s...`);
-      logProcess = null;
-      setTimeout(start, timeout);
+      if (!isStopped) {
+        console.log(`Restarting mining log after ${timeout / 1000}s...`);
+        setTimeout(start, timeout);
+      }
     });
 
     logProcess.on('error', (err) => {
@@ -76,4 +78,17 @@ ${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
   }
 
   start();
+
+  return {
+    stop: () => {
+      console.log('Stopping mining monitor...');
+      isStopped = true;
+      if (logProcess) logProcess.kill();
+    },
+    restart: () => {
+      console.log('Restarting mining monitor manually...');
+      isStopped = false;
+      start();
+    }
+  };
 }
