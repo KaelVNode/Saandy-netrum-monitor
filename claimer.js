@@ -28,8 +28,10 @@ export function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim
     console.log('Started mining monitor...');
 
     logProcess.stdout.on('data', (data) => {
-      const lines = data.toString().split('\n').filter(line =>
-        line.includes('Mined') || line.includes('Speed'));
+      const lines = data
+        .toString()
+        .split('\n')
+        .filter(line => line.includes('Mined') || line.includes('Speed'));
 
       for (const line of lines) {
         const parts = line.split('|').map(p => p.trim());
@@ -68,6 +70,7 @@ ${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
     logProcess.on('close', () => {
       if (!isStopped) {
         console.log(`Restarting mining log after ${timeout / 1000}s...`);
+        logProcess = null;
         setTimeout(start, timeout);
       }
     });
@@ -81,14 +84,12 @@ ${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
 
   return {
     stop: () => {
-      console.log('Stopping mining monitor...');
       isStopped = true;
-      if (logProcess) logProcess.kill();
-    },
-    restart: () => {
-      console.log('Restarting mining monitor manually...');
-      isStopped = false;
-      start();
+      if (logProcess) {
+        logProcess.kill();
+        logProcess = null;
+      }
+      console.log('Mining log monitor stopped.');
     }
   };
 }
