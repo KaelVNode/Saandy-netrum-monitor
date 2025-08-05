@@ -1,73 +1,54 @@
-import { spawn } from 'child_process';
+export function createMiner({ telegramSend, getBalances }) {
+  let mining = false;
+  let minedAmount = 0;
+  let startTime = null;
+  let intervalId = null;
 
-export function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim }) {
-  let lastSent = 0;
-  const rateLimitMs = 30_000; // 30 detik
-
-  // Emoji encoded (emcode)
   const emojis = {
-    chart: 'ðŸ“Š',      // 📊
-    clock: 'â›°ï¸',      // ⏰
-    progress: 'ðŸ“…',    // 📅
-    mined: 'ðŸ’°',       // 💰
-    speed: 'âš¡',         // ⚡
-    status: 'âœ…',        // ✅
-    claim: 'ðŸ“¦',        // 📦
+    pickaxe: '⛏️',
+    clock: '⏱️',
+    progress: '📊',
+    money: '💰',
+    bolt: '⚡',
+    status: '✅',
   };
 
-  function start() {
-    const logProcess = spawn('netrum-mining-log');
-    console.log('Started mining monitor...');
-
-    logProcess.stdout.on('data', (data) => {
-      const lines = data.toString().split('\n').filter(Boolean);
-
-      for (const line of lines) {
-        if (line.includes('Mined') || line.includes('Speed')) {
-          const parts = line.split('|').map(p => p.trim());
-          if (parts.length < 5) continue;
-
-          const mined = parseFloat(parts[2]?.replace('Mined:', '') || 0);
-          if (!isNaN(mined)) stats.mined = mined;
-
-          const message = `
-<b>${emojis.chart} Mining Update</b>
-${emojis.clock} <b>Waktu:</b> ${parts[0]}
-${emojis.progress} <b>Progres:</b> ${parts[1]}
-${emojis.mined} <b>Mined:</b> ${mined}
-${emojis.speed} <b>Speed:</b> ${parts[3]}
-${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
-
-          const now = Date.now();
-          if (now - lastSent >= rateLimitMs) {
-            telegramSend(message);
-            lastSent = now;
-          }
-
-          if (
-            parts[4]?.includes('Claim Pending') ||
-            parts[1]?.includes('100.00%')
-          ) {
-            runAutoClaim();
-          }
-        }
-      }
-    });
-
-    logProcess.stderr.on('data', (data) => {
-      console.error(`stderr: ${data}`);
-    });
-
-    logProcess.on('error', (err) => {
-      console.error('Gagal menjalankan proses:', err);
-    });
-
-    setTimeout(() => {
-      console.log(`Restarting mining log after ${timeout / 1000}s...`);
-      logProcess.kill();
-      start();
-    }, timeout);
+  function formatDuration(ms) {
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    return `${h}h ${m}m ${s}s`;
   }
 
-  start();
+  function startMining() {
+    if (mining) return;
+    mining = true;
+    minedAmount = 0;
+    startTime = Date.now();
+
+    intervalId = setInterval(async () => {
+      // Simulasi mining speed
+      const speed = 0.000112; // 0.000112 NPT/s
+      minedAmount += speed;
+
+      const elapsed = Date.now() - startTime;
+      const percent = ((elapsed / (24 * 60 * 60 * 1000)) * 100).toFixed(2); // example: 24h target
+      const message = `
+${emojis.pickaxe} Mining Update
+${emojis.clock} Waktu: ${formatDuration(elapsed)}
+${emojis.progress} Progres: ${percent}%
+${emojis.money} Mined: ${minedAmount.toFixed(6)}
+${emojis.bolt} Speed: ${speed.toFixed(9)}/s
+${emojis.status} Status: ACTIVE`.trim();
+
+      await telegramSend(message);
+    }, 30 * 60 * 1000); // kirim setiap 30 menit
+  }
+
+  function stopMining() {
+    if (intervalId) clearInterval(intervalId);
+    mining = false;
+  }
+
+  return { startMining, stopMining };
 }
