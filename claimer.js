@@ -3,11 +3,20 @@ import { spawn } from 'child_process';
 export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDailyReport }) {
   let claimInProgress = false;
 
+  // Emcode emojis
+  const emojis = {
+    start: 'ðŸ”¥',           // 🔥
+    success: 'âœ…',          // ✅
+    fail: 'â�Œï¸',           // ❌
+    link: 'ðŸ”—',            // 🔗
+    claimBox: 'ðŸ“¦',         // 📦
+  };
+
   async function runAutoClaim() {
     if (claimInProgress) return;
     claimInProgress = true;
 
-    await telegramSend('Starting automatic NPT claim...');
+    await telegramSend(`${emojis.claimBox} Starting automatic NPT claim...`);
 
     const claimProcess = spawn('node', ['/root/netrum-lite-node/cli/claim-cli.js']);
     let output = '';
@@ -27,12 +36,15 @@ export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDa
       if (code === 0) {
         stats.claims += 1;
         telegramSend(`
-<b>Claim Result</b>
+<b>${emojis.success} Claim Result</b>
 Status: Success
-Transaction: <a href="${txLink || '#'}">${txLink || 'Link not found'}</a>`);
+${emojis.link} Transaction: <a href="${txLink || '#'}">${txLink || 'Link not found'}</a>`.trim());
         sendDailyReport();
       } else {
-        telegramSend(`<b>Claim Result</b>\nStatus: Failed\nExit Code: ${code}`);
+        telegramSend(`
+<b>${emojis.fail} Claim Result</b>
+Status: Failed
+Exit Code: ${code}`.trim());
       }
 
       claimInProgress = false;
