@@ -59,8 +59,8 @@ You’ll need:
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/KaelVNode/netrum-monitor.git
-cd netrum-monitor
+git clone https://github.com/KaelVNode/Saandy-netrum-monitor.git
+cd Saandy-netrum-monitor
 npm install
 ```
 
