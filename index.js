@@ -25,39 +25,35 @@ async function main() {
 
   const telegram = createTelegram(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID);
 
-  // Helper kecil biar judul & prefix beda sesuai mode
-  const titleEmoji = mode === 'manual' ? '🧑‍💻' : '🤖';
-  const pickaxe = '⛏';
-  const bullet = '•';
+  // judul & prefix sesuai mode, versi Unicode-escape
+  const titleEmoji = mode === 'manual' ? '\u{1F9D1}\u200D\u{1F4BB}' : '\u{1F916}'; // 🧑‍💻 / 🤖
+  const pickaxe = '\u26CF'; // ⛏
+  const bullet = '\u2022'; // •
 
   async function sendDailyReport() {
     try {
       const { ethBalance, nptBalance } = await getBalances(config.WALLET_ADDRESS);
-
-      // Pakai locale sistem agar jamnya familiar
       const now = new Date().toLocaleString();
 
       await telegram.send(
         `
 <b>${titleEmoji} ${pickaxe} Daily Mining Report ${pickaxe}</b>
-🕒 ${bullet} Time: <b>${now}</b>
-📊 ${bullet} Mined: <b>${stats.mined.toFixed(6)} NPT</b>
-🪙 ${bullet} Claims: <b>${stats.claims}</b>
-👛 ${bullet} Wallet: <code>${config.WALLET_ADDRESS}</code>
-💰 ${bullet} ETH: <b>${ethBalance.toFixed(6)}</b>
-🔷 ${bullet} NPT: <b>${nptBalance.toFixed(6)}</b>
+\u{1F552} ${bullet} Time: <b>${now}</b>
+\u{1F4CA} ${bullet} Mined: <b>${stats.mined.toFixed(6)} NPT</b>
+\u{1FA99} ${bullet} Claims: <b>${stats.claims}</b>
+\u{1F45B} ${bullet} Wallet: <code>${config.WALLET_ADDRESS}</code>
+\u{1F4B0} ${bullet} ETH: <b>${ethBalance.toFixed(6)}</b>
+\u{1F537} ${bullet} NPT: <b>${nptBalance.toFixed(6)}</b>
 `.trim()
       );
 
-      // reset harian
       stats.mined = 0;
       stats.claims = 0;
     } catch (err) {
-      await telegram.send(`🚨 Gagal buat laporan harian: <code>${err?.message || err}</code>`);
+      await telegram.send(`\u{1F6A8} Gagal buat laporan harian: <code>${err?.message || err}</code>`);
     }
   }
 
-  // Kirim laporan pertama saat start
   await sendDailyReport();
 
   const { runAutoClaim } = createClaimer({
@@ -68,7 +64,6 @@ async function main() {
     sendDailyReport
   });
 
-  // Monitor log miner (notifikasi detail ada di miner.js)
   runMiningLogMonitor({
     telegramSend: telegram.send,
     timeout: config.TIMEOUT_MS,
@@ -76,16 +71,13 @@ async function main() {
     runAutoClaim
   });
 
-  // Opsional: tanya interaktif untuk kirim laporan on-demand (hanya jika manual)
   if (mode === 'manual') {
     try {
       const ans = await ask('Ketik "report" untuk kirim laporan sekarang (atau Enter untuk skip): ');
       if (String(ans || '').trim().toLowerCase() === 'report') {
         await sendDailyReport();
       }
-    } catch (e) {
-      // abaikan input error di mode non-interaktif
-    }
+    } catch {}
   }
 }
 
@@ -93,10 +85,8 @@ main().catch(async (err) => {
   try {
     const safeMsg = err?.stack || err?.message || String(err);
     const telegram = createTelegram(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID);
-    await telegram.send(`🚨 Fatal error di main: <code>${safeMsg}</code>`);
-  } catch (_) {
-    // terakhir, log ke stderr
-  } finally {
+    await telegram.send(`\u{1F6A8} Fatal error di main: <code>${safeMsg}</code>`);
+  } catch {} finally {
     process.exit(1);
   }
 });
