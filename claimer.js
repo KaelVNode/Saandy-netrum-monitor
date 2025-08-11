@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { E } from './symbol.js';
 
 export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDailyReport }) {
   let claimInProgress = false;
@@ -7,7 +8,7 @@ export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDa
     if (claimInProgress) return;
     claimInProgress = true;
 
-    await telegramSend('\u{1F916} Starting automatic NPT claim... \u26CF');
+    await telegramSend(`${E.robot} Starting automatic NPT claim... ${E.pickaxe}`);
 
     const claimProcess = spawn('node', ['/root/netrum-lite-node/cli/claim-cli.js']);
     let output = '';
@@ -23,19 +24,26 @@ export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDa
     claimProcess.on('close', (code) => {
       const match = output.match(/https:\/\/basescan\.org\/tx\/\S+/);
       const txLink = match ? match[0] : null;
+      const divider = E.sep.repeat(28);
 
       if (code === 0) {
         stats.claims += 1;
-        telegramSend(`
-<b>\u{1F389} Claim Result</b>
-\u2705 Status: <b>Success</b>
-\u{1F517} Transaction: <a href="${txLink || '#'}">${txLink || 'Link not found'}</a>`);
+        const successMsg =
+`<b>${E.confetti} Claim Result</b>
+${divider}
+${E.check} Status: <b>Success</b>
+${E.link} Tx: ${txLink || 'Link not found'}
+${divider}`;
+        telegramSend(successMsg);
         sendDailyReport();
       } else {
-        telegramSend(`
-<b>\u{1F4A5} Claim Result</b>
-\u274C Status: <b>Failed</b>
-\uD83D\uDCF3 Exit Code: ${code}`); // 📟
+        const failMsg =
+`<b>${E.boom} Claim Result</b>
+${divider}
+${E.cross} Status: <b>Failed</b>
+${E.pager} Exit: ${code}
+${divider}`;
+        telegramSend(failMsg);
       }
 
       claimInProgress = false;
