@@ -37,6 +37,8 @@ export const E = {
   progress:   '\u{1F4CA}',          // 📊
   speed:      '\u23E9',             // ⏩
   status:     '\u{1F3C1}',          // 🏁
+  pickaxe:    '\u26CF', // ⛏
+  mined:      '\u26CF',   // ⛏ alias utk progress output
 
   // Klaim & status
   claim:  '\u{1F4B0}',        // 💰 (money bag; konsisten dgn script)
