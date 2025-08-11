@@ -4,14 +4,15 @@ function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim }) {
   let lastSent = 0;
   const rateLimitMs = 30_000;
 
+  // Semua emoji dikonversi ke Unicode escape
   const emojis = {
-    chart: '📊',
-    clock: '⏰',
-    progress: '📅',
-    mined: '💰',
-    speed: '⚡',
-    status: '✅',
-    claim: '📦',
+    chart: '\u{1F4C8}',   // 📈
+    clock: '\u{23F0}',     // ⏰
+    progress: '\u{1F4CA}', // 📊
+    mined: '\u26CF',       // ⛏
+    speed: '\u23E9',       // ⏩
+    status: '\u{1F3C1}',   // 🏁
+    claim: '\u{1F4B0}',    // 💰
   };
 
   function start() {
