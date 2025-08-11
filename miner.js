@@ -1,19 +1,37 @@
 import { spawn } from 'child_process';
+import { E } from './symbol.js';
 
-function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim }) {
+// --- helpers ---
+function stripEmojis(s = '') {
+  // hapus emoji & variation selector
+  return String(s).replace(/[\p{Extended_Pictographic}\uFE0F]/gu, '');
+}
+function formatTimeToHms(s) {
+  // buang semua selain digit & colon, lalu format "HH:MM:SS" -> "5h 47m 18s"
+  const clean = String(s).replace(/[^\d:]/g, '');
+  const m = clean.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+  if (!m) return clean || s;
+  const [, hh, mm, ss] = m;
+  return `${Number(hh)}h ${Number(mm)}m ${Number(ss)}s`;
+}
+function titleCaseWords(str = '') {
+  return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+function normalizeStatus(s = '') {
+  // hapus emoji & simbol non-huruf, rapikan spasi, jadi Title Case
+  const noEmoji = stripEmojis(s);
+  const lettersOnly = noEmoji.replace(/[^A-Za-z ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return titleCaseWords(lettersOnly);
+}
+// 12-slot progress bar
+function makeProgressBar(pct, slots = 12) {
+  const filled = Math.max(0, Math.min(slots, Math.round((pct / 100) * slots)));
+  return '[' + E.barFull.repeat(filled) + E.barEmpty.repeat(slots - filled) + `] ${pct.toFixed(2)}%`;
+}
+
+export function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim }) {
   let lastSent = 0;
   const rateLimitMs = 30_000;
-
-  // Semua emoji dikonversi ke Unicode escape
-  const emojis = {
-    chart: '\u{1F4C8}',   // 📈
-    clock: '\u{23F0}',     // ⏰
-    progress: '\u{1F4CA}', // 📊
-    mined: '\u26CF',       // ⛏
-    speed: '\u23E9',       // ⏩
-    status: '\u{1F3C1}',   // 🏁
-    claim: '\u{1F4B0}',    // 💰
-  };
 
   function start() {
     const logProcess = spawn('netrum-mining-log');
@@ -23,33 +41,51 @@ function runMiningLogMonitor({ telegramSend, timeout, stats, runAutoClaim }) {
       const lines = data.toString().split('\n').filter(Boolean);
 
       for (const line of lines) {
-        if (line.includes('Mined') || line.includes('Speed')) {
-          const parts = line.split('|').map(p => p.trim());
-          if (parts.length < 5) continue;
+        // contoh: "06:23:44 | 73.35% | Mined: 4.805168 | Speed: 0.000076/s | Status: ACTIVE"
+        if (!line.includes('Mined') && !line.includes('Speed')) continue;
 
-          const mined = parseFloat(parts[2]?.replace('Mined:', '') || 0);
-          if (!isNaN(mined)) stats.mined = mined;
+        const parts = line.split('|').map(p => p.trim());
+        if (parts.length < 5) continue;
 
-          const message = `
-<b>${emojis.chart} Mining Update</b>
-${emojis.clock} <b>Waktu:</b> ${parts[0]}
-${emojis.progress} <b>Progres:</b> ${parts[1]}
-${emojis.mined} <b>Mined:</b> ${mined}
-${emojis.speed} <b>Speed:</b> ${parts[3]}
-${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
+        const time = formatTimeToHms(parts[0]);
 
-          const now = Date.now();
-          if (now - lastSent >= rateLimitMs) {
-            telegramSend(message);
-            lastSent = now;
-          }
+        const pct = parseFloat(parts[1].replace(/[^\d.]/g, '')) || 0;
+        const minedVal = parseFloat(
+          parts[2].replace(/.*Mined:\s*/i, '').replace(/[^\d.]/g, '')
+        ) || 0;
+        const speedText = stripEmojis(
+          parts[3].replace(/.*Speed:\s*/i, '').trim()
+        );
+        const statusText = normalizeStatus(
+          parts[4].replace(/.*Status:\s*/i, '').trim()
+        );
 
-          if (
-            parts[4]?.includes('Claim Pending') ||
-            parts[1]?.includes('100.00%')
-          ) {
-            runAutoClaim();
-          }
+        if (!isNaN(minedVal)) stats.mined = minedVal;
+
+        const bar = makeProgressBar(pct, 12);
+        const divider = E.sep.repeat(28);
+
+        // dua spasi setelah "Time:" & "Status:" sesuai permintaan
+        const body =
+`<b>${E.chart} Mining Update</b>
+${divider}
+${E.clock} Time:  ${time}
+${E.progress} Progress: ${bar}
+${E.mined} Mined: ${minedVal}
+${E.speed} Speed: ${speedText}
+${E.status} Status:  ${statusText}
+${divider}`;
+
+        const now = Date.now();
+        if (now - lastSent >= rateLimitMs) {
+          telegramSend(body.trim());
+          lastSent = now;
+        }
+
+        // trigger auto-claim saat 100% atau status mengandung "Claim Pending"
+        if (statusText.toLowerCase().includes('claim pending') || pct >= 100) {
+          telegramSend(`${E.claim} Auto-claim triggered (${pct.toFixed(2)}%) ${E.bolt}`);
+          runAutoClaim();
         }
       }
     });
@@ -71,5 +107,3 @@ ${emojis.status} <b>Status:</b> ${parts[4]}`.trim();
 
   start();
 }
-
-export { runMiningLogMonitor };
