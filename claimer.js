@@ -7,7 +7,7 @@ export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDa
     if (claimInProgress) return;
     claimInProgress = true;
 
-    await telegramSend('🤖 Starting automatic NPT claim... ⛏');
+    await telegramSend('\u{1F916} Starting automatic NPT claim... \u26CF');
 
     const claimProcess = spawn('node', ['/root/netrum-lite-node/cli/claim-cli.js']);
     let output = '';
@@ -27,15 +27,15 @@ export function createClaimer({ telegramSend, wallet, stats, getBalances, sendDa
       if (code === 0) {
         stats.claims += 1;
         telegramSend(`
-<b>🎉 Claim Result</b>
-✅ Status: <b>Success</b>
-🔗 Transaction: <a href="${txLink || '#'}">${txLink || 'Link not found'}</a>`);
+<b>\u{1F389} Claim Result</b>
+\u2705 Status: <b>Success</b>
+\u{1F517} Transaction: <a href="${txLink || '#'}">${txLink || 'Link not found'}</a>`);
         sendDailyReport();
       } else {
         telegramSend(`
-<b>💥 Claim Result</b>
-❌ Status: <b>Failed</b>
-📟 Exit Code: ${code}`);
+<b>\u{1F4A5} Claim Result</b>
+\u274C Status: <b>Failed</b>
+\uD83D\uDCF3 Exit Code: ${code}`); // 📟
       }
 
       claimInProgress = false;
