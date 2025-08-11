@@ -1,41 +1,55 @@
-// Semua simbol & emoji dalam Unicode escape (aman di server non-UTF-8)
+// symbol.js
 export const E = {
-  // Garis & pemisah
-  sep: '\u2500',               // ─
+  // ===== Dividers =====
+  dividerThin:    '\u2500',   // ─
+  dividerThick:   '\u2501',   // ━
+  dividerDouble:  '\u2550',   // ═
+  dividerDot:     '\u00B7',   // ·
+  dividerDash:    '-',        // -
+  dividerWave:    '~',        // ~
+  dividerEquals:  '=',        // =
+  dividerStar:    '\u2605',   // ★
+  dividerDiamond: '\u2666',   // ♦
+  dividerBox:     '\u25A0',   // ■
+  dividerFancy:   '\u2022',   // •
+  dividerArrow:   '\u2796',   // ➖
+  dividerApprox:  '\u2248',   // ≈
 
-  // Waktu & progress
-  clock: '\u{23F0}',           // ⏰
-  progress: '\u{1F4CA}',       // 📊
-  chart: '\u{1F4C8}',          // 📈
-  barFull: '\u2588',           // █
-  barEmpty: '\u2591',          // ░
+  // Default separator (dipakai kode lama)
+  sep: '\u2500',              // ─
 
-  // Mining & status
-  pickaxe: '\u26CF',           // ⛏
-  mined: '\u26CF',             // ⛏
-  speed: '\u23E9',             // ⏩
-  status: '\u{1F3C1}',         // 🏁
-  claim: '\u{1F4B0}',          // 💰
-  bolt: '\u26A1',              // ⚡
+  // ===== Progress bar bricks =====
+  barFull:  '\u2588',         // █
+  barEmpty: '\u2591',         // ░
 
-  // Laporan harian
-  coin: '\u{1FA99}',           // 🪙
-  wallet: '\u{1F45B}',         // 👛
-  money: '\u{1F4B0}',          // 💰
-  blueDiamond: '\u{1F537}',    // 🔷
+  // ===== Icons (reports/monitor/claimer) =====
+  clock:      '\u23F0',             // ⏰
+  stopwatch:  '\u23F1',             // ⏱
+  pickaxe:    '\u26CF',             // ⛏
+  coin:       '\u{1FA99}',          // 🪙
+  wallet:     '\u{1F45B}',          // 👛
+  money:      '\u{1F4B0}',          // 💰
+  blueDiamond:'\u{1F537}',          // 🔷
+  robot:      '\u{1F916}',          // 🤖
+  personPc:   '\u{1F9D1}\u200D\u{1F4BB}', // 🧑‍💻
+  warn:       '\u26A0\uFE0F',       // ⚠️
+  chart:      '\u{1F4C8}',          // 📈
+  progress:   '\u{1F4CA}',          // 📊
+  speed:      '\u23E9',             // ⏩
+  status:     '\u{1F3C1}',          // 🏁
 
-  // Mode ikon
-  robot: '\u{1F916}',          // 🤖
-  personPc: '\u{1F9D1}\u200D\u{1F4BB}', // 🧑‍💻
-
-  // Claim result
-  confetti: '\u{1F389}',       // 🎉
-  check: '\u2705',             // ✅
-  link: '\u{1F517}',           // 🔗
-  boom: '\u{1F4A5}',           // 💥
-  cross: '\u274C',             // ❌
-  pager: '\u{1F4F3}',          // 📟
-
-  // Peringatan
-  warn: '\u{1F6A8}'            // 🚨
+  // Klaim & status
+  claim:  '\u{1F4B0}',        // 💰 (money bag; konsisten dgn script)
+  check:  '\u2705',           // ✅
+  cross:  '\u274C',           // ❌
+  boom:   '\u{1F4A5}',        // 💥
+  link:   '\u{1F517}',        // 🔗
+  calendar: '\u{1F4C5}',      // 📅 (dipakai di Claim Result)
+  doc:      '\u{1F4DC}',      // 📜/📄 (reason)
 };
+
+// (Opsional) helper bikin divider cepat
+export function makeDivider(style = 'dividerThin', len = 28) {
+  const ch = E[style] || E.dividerThin;
+  return ch.repeat(len);
+}
