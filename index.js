@@ -25,22 +25,39 @@ async function main() {
 
   const telegram = createTelegram(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID);
 
+  // Helper kecil biar judul & prefix beda sesuai mode
+  const titleEmoji = mode === 'manual' ? '🧑‍💻' : '🤖';
+  const pickaxe = '⛏';
+  const bullet = '•';
+
   async function sendDailyReport() {
-    const { ethBalance, nptBalance } = await getBalances(config.WALLET_ADDRESS);
-    const now = new Date().toLocaleString();
-    await telegram.send(`
-<b>Daily Mining Report</b>
-Time: ${now}
-Mined: ${stats.mined.toFixed(6)} NPT
-Claims: ${stats.claims}
-Wallet: ${config.WALLET_ADDRESS}
-ETH: ${ethBalance.toFixed(6)}
-NPT: ${nptBalance.toFixed(6)}
-    `.trim());
-    stats.mined = 0;
-    stats.claims = 0;
+    try {
+      const { ethBalance, nptBalance } = await getBalances(config.WALLET_ADDRESS);
+
+      // Pakai locale sistem agar jamnya familiar
+      const now = new Date().toLocaleString();
+
+      await telegram.send(
+        `
+<b>${titleEmoji} ${pickaxe} Daily Mining Report ${pickaxe}</b>
+🕒 ${bullet} Time: <b>${now}</b>
+📊 ${bullet} Mined: <b>${stats.mined.toFixed(6)} NPT</b>
+🪙 ${bullet} Claims: <b>${stats.claims}</b>
+👛 ${bullet} Wallet: <code>${config.WALLET_ADDRESS}</code>
+💰 ${bullet} ETH: <b>${ethBalance.toFixed(6)}</b>
+🔷 ${bullet} NPT: <b>${nptBalance.toFixed(6)}</b>
+`.trim()
+      );
+
+      // reset harian
+      stats.mined = 0;
+      stats.claims = 0;
+    } catch (err) {
+      await telegram.send(`🚨 Gagal buat laporan harian: <code>${err?.message || err}</code>`);
+    }
   }
 
+  // Kirim laporan pertama saat start
   await sendDailyReport();
 
   const { runAutoClaim } = createClaimer({
@@ -51,12 +68,35 @@ NPT: ${nptBalance.toFixed(6)}
     sendDailyReport
   });
 
+  // Monitor log miner (notifikasi detail ada di miner.js)
   runMiningLogMonitor({
     telegramSend: telegram.send,
     timeout: config.TIMEOUT_MS,
     stats,
     runAutoClaim
   });
+
+  // Opsional: tanya interaktif untuk kirim laporan on-demand (hanya jika manual)
+  if (mode === 'manual') {
+    try {
+      const ans = await ask('Ketik "report" untuk kirim laporan sekarang (atau Enter untuk skip): ');
+      if (String(ans || '').trim().toLowerCase() === 'report') {
+        await sendDailyReport();
+      }
+    } catch (e) {
+      // abaikan input error di mode non-interaktif
+    }
+  }
 }
 
-main();
+main().catch(async (err) => {
+  try {
+    const safeMsg = err?.stack || err?.message || String(err);
+    const telegram = createTelegram(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID);
+    await telegram.send(`🚨 Fatal error di main: <code>${safeMsg}</code>`);
+  } catch (_) {
+    // terakhir, log ke stderr
+  } finally {
+    process.exit(1);
+  }
+});
